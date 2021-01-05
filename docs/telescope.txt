@@ -4,13 +4,6 @@
 Telescope.nvim is a plugin for fuzzy finding and neovim. It helps you search
 for anything you can imagine (and then write in Lua).
 
-telescope.setup({opts})                                    *telescope.setup()*
-        and other aspects of telescope.
-
-        Parameters: ~
-            {opts} (table)  Configuration opts. Keys: defaults, extensions
-
-
 telescope.load_extension({name})                  *telescope.load_extension()*
         Load an extension.
 
@@ -28,6 +21,13 @@ telescope.register_extension({mod})           *telescope.register_extension()*
 telescope.extensions()                                *telescope.extensions()*
         While the docs currently generate this as a function, it's actually a
         table. Sorry.
+
+
+telescope.setup({opts})                                    *telescope.setup()*
+        and other aspects of telescope.
+
+        Parameters: ~
+            {opts} (table)  Configuration opts. Keys: defaults, extensions
 
 
 
