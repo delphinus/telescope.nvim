@@ -159,7 +159,7 @@ require('telescope').setup{
     borderchars = { '─', '│', '─', '│', '╭', '╮', '╯', '╰'},
     color_devicons = true,
     use_less = true,
-    set_env = { ['COLORTERM'] = 'truecolor' }, -- default { }, currently unsupported for shells like cmd.exe / powershell.exe
+    set_env = { ['COLORTERM'] = 'truecolor' }, -- default = nil,
     file_previewer = require'telescope.previewers'.cat.new, -- For buffer previewer use `require'telescope.previewers'.vim_buffer_cat.new`
     grep_previewer = require'telescope.previewers'.vimgrep.new, -- For buffer previewer use `require'telescope.previewers'.vim_buffer_vimgrep.new`
     qflist_previewer = require'telescope.previewers'.qflist.new, -- For buffer previewer use `require'telescope.previewers'.vim_buffer_qflist.new`
@@ -285,7 +285,7 @@ require('telescope').setup{
         ["<CR>"] = actions.goto_file_selection_edit + actions.center + my_cool_custom_action,
       },
       n = {
-        ["<esc>"] = actions.close
+        ["<esc>"] = actions.close,
         ["<C-i>"] = my_cool_custom_action,
       },
     },
@@ -520,6 +520,15 @@ Telescope find_files theme=get_dropdown
 Themes should work with every `telescope.builtin` function.  If you wish to
 make theme, check out `lua/telescope/themes.lua`.
 
+## Autocmds
+
+Telescope user autocmds:
+
+| Event                           | Description                                        |
+|---------------------------------|----------------------------------------------------|
+| `User TelescopeFindPre`         | Do it before create Telescope all the float window |
+| `User TelescopePreviewerLoaded` | Do it after Telescope previewer window create      |
+
 
 ## Extensions
 
@@ -536,6 +545,7 @@ enhancements by using compiled C and interfacing directly with Lua.
 - [telescope-vimspector.nvim](https://github.com/nvim-telescope/telescope-vimspector.nvim) - Integration for [vimspector](https://github.com/puremourning/vimspector)
 - [telescope-fzf-writer.nvim](https://github.com/nvim-telescope/telescope-fzf-writer.nvim) - Incorporating some fzf concepts with plenary jobs and telescope
 - [telescope-symbols.nvim](https://github.com/nvim-telescope/telescope-symbols.nvim) - Picking symbols and insert them at point.
+- [telescope-asynctasks.nvim](https://github.com/GustavoKatel/telescope-asynctasks.nvim) - Integration for [asynctasks](https://github.com/skywind3000/asynctasks.vim)
 
 Extensions can be refenced by doing the following:
 
@@ -597,7 +607,7 @@ function my_custom_picker(results)
     finder = finders.new_table(results),
     sorter = sorters.fuzzy_with_index_bias(),
     attach_mappings = function(_, map)
-      -- Map "<CR>" in insert mode to the funciton, actions.set_command_line
+      -- Map "<CR>" in insert mode to the function, actions.set_command_line
       map('i', '<CR>', actions.set_command_line)
 
       return true

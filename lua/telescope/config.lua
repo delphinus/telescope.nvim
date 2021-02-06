@@ -54,7 +54,11 @@ function config.set_defaults(defaults)
   set("borderchars", { '─', '│', '─', '│', '╭', '╮', '╯', '╰'})
 
   set("get_status_text", function(self)
-    return string.format("%s / %s", (self.stats.processed or 0) - (self.stats.filtered or 0), self.stats.processed)
+    return string.format(
+      "%s / %s",
+      (self.stats.processed or 0) - (self.stats.filtered or 0),
+      self.stats.processed or 0
+    )
   end)
 
   -- Builtin configuration
@@ -67,7 +71,7 @@ function config.set_defaults(defaults)
   set("use_less", true)
   set("color_devicons", true)
 
-  set("set_env", {})
+  set("set_env", nil)
 
   -- TODO: Add motions to keybindings
 
