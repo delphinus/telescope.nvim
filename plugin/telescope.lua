@@ -141,11 +141,98 @@ end, {
       end
     end
 
-    local options_list = vim.tbl_keys(require("telescope.config").values)
-    table.sort(options_list)
+    -- オプション補完
+    local last_arg = l[#l]
+
+    -- `key=value`形式の場合、値の部分でパス補完
+    if last_arg:find("=") then
+      local eq_pos = last_arg:find("=")
+      local key = last_arg:sub(1, eq_pos - 1)
+      local value = last_arg:sub(eq_pos + 1)
+
+      -- パスを受け取るオプションのリスト
+      local path_options = {
+        ctags_file = true,
+        cwd = true,
+        gitdir = true,
+        root_dir = true,
+        search_dirs = true,
+        search_file = true,
+        symbol_path = true,
+        toplevel = true,
+      }
+
+      if path_options[key] then
+        local path_completions = vim.fn.getcompletion(value, "file")
+        return vim.tbl_map(function(path)
+          return key .. "=" .. path
+        end, path_completions)
+      end
+
+      -- パス以外のオプションの場合、空リストを返す
+      return {}
+    end
+
+    -- オプションキーの補完
+    -- telescope.config.valuesのグローバルオプション + picker固有オプション
+    local global_options = vim.tbl_keys(require("telescope.config").values)
+
+    -- pickers.lua と全builtin pickerから抽出した全オプション
+    local picker_options = {
+      "__hide_previewer", "__inverted", "__locations_input", "__matches",
+      "_cache_picker", "_completion_callbacks", "_multi",
+      "additional_args", "attach_mappings",
+      "border", "borderchars", "bufnr", "bufnr_width",
+      "cache_index", "cache_picker", "colors", "column_len",
+      "create_layout", "ctags_file", "curr_filepath", "current_file",
+      "current_line", "current_previewer_index", "cwd", "cwd_only",
+      "cycle_layout_list",
+      "debounce", "default_selection_index", "default_text",
+      "enable_preview", "entry_maker", "entry_prefix", "env", "expand_dir",
+      "fallback", "file_encoding", "file_ignore_patterns", "filter", "filter_fn",
+      "find_command", "finder", "fix_preview_title", "follow", "from",
+      "get_selection_window", "get_status_text", "get_window_options",
+      "git_command", "gitdir", "glob_pattern", "grep_open_files",
+      "hidden",
+      "id", "ignore_builtins", "ignore_current_buffer", "ignore_filename",
+      "include_current_line", "include_current_session", "include_declaration",
+      "include_extensions", "initial_mode", "is_bare",
+      "jump_type",
+      "lang", "layout_config", "layout_strategy", "lhs_filter",
+      "line_highlights", "line_width",
+      "make_entry", "man_cmd", "manager", "mark_type", "max_results",
+      "modes", "multi", "multi_icon",
+      "namespace", "new_prefix", "no_ignore", "no_ignore_parent",
+      "no_unlisted", "nr",
+      "on_complete", "on_input_filter_cb", "only_buf", "only_cwd",
+      "operator", "operator_callback",
+      "path_display", "pattern", "prefix_hl_group", "preview",
+      "preview_title", "previewer", "prompt", "prompt_prefix", "prompt_title",
+      "push_cursor_on_edit", "push_tagstack_on_edit",
+      "query",
+      "recurse_submodules", "reset_prompt", "results", "results_title",
+      "results_ts_highlight", "resumed_picker", "reuse_win", "root_dir",
+      "scroll_strategy", "search", "search_dirs", "search_file", "sections",
+      "select_current", "selection_caret", "selection_strategy",
+      "severity", "severity_bound", "severity_limit",
+      "show_all_buffers", "show_branch", "show_buf_command", "show_line",
+      "show_moon", "show_plug", "show_pluto", "show_remote_tracking_branches",
+      "show_untracked",
+      "sort_buffers", "sort_by", "sort_lastused", "sort_mru",
+      "sorter", "sorting_strategy", "sources", "symbol_path",
+      "temp__scrolling_limit", "tiebreak", "to", "toplevel", "track",
+      "type_filter",
+      "use_default_opts", "use_file_path", "use_git_root", "use_regex",
+      "vimgrep_arguments",
+      "width_lhs", "winblend", "window", "winnr", "word_match", "wrap_results",
+    }
+
+    -- 両方をマージして重複を削除
+    local all_options = vim.list_extend(vim.deepcopy(global_options), picker_options)
+    all_options = vim.fn.uniq(vim.fn.sort(all_options))
 
     return vim.tbl_filter(function(val)
-      return vim.startswith(val, l[#l])
-    end, options_list)
+      return vim.startswith(val, last_arg)
+    end, all_options)
   end,
 })
