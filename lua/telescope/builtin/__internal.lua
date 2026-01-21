@@ -828,7 +828,89 @@ internal.man_pages = function(opts)
   assert(vim.islist(opts.sections), "sections should be a list")
   opts.man_cmd = utils.get_lazy_default(opts.man_cmd, function()
     local cache = Path:new(vim.fn.stdpath "cache", "telescope-man-pages")
-    if cache:exists() and cache:_stat().size > 0 and os.time() - cache:_stat().mtime.sec < 24 * 60 * 60 then
+    local cache_valid = false
+
+    if cache:exists() and cache:_stat().size > 0 then
+      local cache_mtime = cache:_stat().mtime.sec
+
+      -- Get man page directories from MANPATH or use manpath command
+      local man_dirs = {}
+      local manpath = vim.env.MANPATH
+
+      if manpath and manpath ~= "" then
+        for dir in manpath:gmatch "[^:]+" do
+          table.insert(man_dirs, dir)
+        end
+      else
+        -- Use manpath command to get system defaults
+        local handle = io.popen("manpath 2>/dev/null")
+        if handle then
+          local result = handle:read("*a")
+          handle:close()
+          if result and result ~= "" then
+            for dir in result:gmatch "[^:\n]+" do
+              table.insert(man_dirs, dir)
+            end
+          end
+        end
+      end
+
+      -- Check if any subdirectory in man directories has been modified
+      cache_valid = true
+      for _, man_dir in ipairs(man_dirs) do
+        local handle = vim.uv.fs_scandir(man_dir)
+        if handle then
+          while true do
+            local name, type = vim.uv.fs_scandir_next(handle)
+            if not name then
+              break
+            end
+
+            if type == "directory" then
+              local subdir = man_dir .. "/" .. name
+              local stat = vim.uv.fs_stat(subdir)
+              if stat and stat.mtime.sec > cache_mtime then
+                cache_valid = false
+                break
+              end
+
+              -- If this is a language directory (not man1, man2, cat1, etc.),
+              -- check its subdirectories as well
+              if not name:match "^man%w$" and not name:match "^cat%w$" then
+                local lang_handle = vim.uv.fs_scandir(subdir)
+                if lang_handle then
+                  while true do
+                    local lang_name, lang_type = vim.uv.fs_scandir_next(lang_handle)
+                    if not lang_name then
+                      break
+                    end
+
+                    if lang_type == "directory" then
+                      local lang_subdir = subdir .. "/" .. lang_name
+                      local lang_stat = vim.uv.fs_stat(lang_subdir)
+                      if lang_stat and lang_stat.mtime.sec > cache_mtime then
+                        cache_valid = false
+                        break
+                      end
+                    end
+                  end
+
+                  if not cache_valid then
+                    break
+                  end
+                end
+              end
+            end
+          end
+
+          if not cache_valid then
+            break
+          end
+        end
+      end
+    end
+
+    if cache_valid then
       return { "cat", cache.filename }
     end
 
