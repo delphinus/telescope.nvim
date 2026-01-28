@@ -885,7 +885,6 @@ internal.man_pages = function(opts)
             if typ == "directory" and is_man(ent) then
               local dir = vim.fs.joinpath(man_dir, ent)
               local stat = vim.uv.fs_stat(dir)
-              vim.print { dir, stat and stat.mtime.sec or 0 }
               if stat and stat.mtime.sec > cache_stat.mtime.sec then
                 cache_valid = false
                 break
