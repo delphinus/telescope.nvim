@@ -850,8 +850,6 @@ internal.man_pages = function(opts)
       local cache_valid = false
 
       if cache_stat and cache_stat.size > 0 then
-        local cache_mtime = cache_stat.mtime.sec
-
         -- Get man page directories from MANPATH or use manpath command
         local man_dirs = {}
         local manpath = vim.env.MANPATH
@@ -865,57 +863,37 @@ internal.man_pages = function(opts)
           end
         end
 
+        ---@param basename string
+        ---@return boolean
+        local function is_man(path)
+          local basename = vim.fs.basename(path)
+          return basename:match "^man%w$" or basename:match "^cat%w$"
+        end
+
         -- Check if any subdirectory in man directories has been modified
         cache_valid = true
+
         for _, man_dir in ipairs(man_dirs) do
-          local handle = vim.uv.fs_scandir(man_dir)
-          if handle then
-            while true do
-              local name, type = vim.uv.fs_scandir_next(handle)
-              if not name then
+          for ent, typ in
+            vim.fs.dir(man_dir, {
+              depth = 2,
+              skip = function(dir_name)
+                return is_man(dir_name)
+              end,
+            })
+          do
+            if typ == "directory" and is_man(ent) then
+              local dir = vim.fs.joinpath(man_dir, ent)
+              local stat = vim.uv.fs_stat(dir)
+              vim.print { dir, stat and stat.mtime.sec or 0 }
+              if stat and stat.mtime.sec > cache_stat.mtime.sec then
+                cache_valid = false
                 break
               end
-
-              if type == "directory" then
-                local subdir = man_dir .. "/" .. name
-                local stat = vim.uv.fs_stat(subdir)
-                if stat and stat.mtime.sec > cache_mtime then
-                  cache_valid = false
-                  break
-                end
-
-                -- If this is a language directory (not man1, man2, cat1, etc.),
-                -- check its subdirectories as well
-                if not name:match "^man%w$" and not name:match "^cat%w$" then
-                  local lang_handle = vim.uv.fs_scandir(subdir)
-                  if lang_handle then
-                    while true do
-                      local lang_name, lang_type = vim.uv.fs_scandir_next(lang_handle)
-                      if not lang_name then
-                        break
-                      end
-
-                      if lang_type == "directory" then
-                        local lang_subdir = subdir .. "/" .. lang_name
-                        local lang_stat = vim.uv.fs_stat(lang_subdir)
-                        if lang_stat and lang_stat.mtime.sec > cache_mtime then
-                          cache_valid = false
-                          break
-                        end
-                      end
-                    end
-
-                    if not cache_valid then
-                      break
-                    end
-                  end
-                end
-              end
             end
-
-            if not cache_valid then
-              break
-            end
+          end
+          if not cache_valid then
+            break
           end
         end
       end
