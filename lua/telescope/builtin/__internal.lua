@@ -847,27 +847,21 @@ internal.man_pages = function(opts)
       local cache_stat = vim.uv.fs_stat(cache_path)
 
       if cache_stat and cache_stat.size > 0 then
-        local manpath = vim.env.MANPATH
-        if not manpath or manpath == "" then
-          local out = vim.system({ "manpath" }):wait().stdout
-          if out then
-            manpath = out
-          end
-        end
-        local man_dirs = manpath and vim.split(manpath, ":", { trimempty = true }) or {}
+        local manpath = vim.env.MANPATH or vim.system({ "manpath" }):wait().stdout or ""
+        local man_dirs = vim.split(manpath, ":", { trimempty = true })
 
         ---@param path string
         ---@return boolean
-        local function is_man(path)
+        local function is_lang_dir(path)
           local basename = vim.fs.basename(path)
-          return basename:match "^man%w$" or basename:match "^cat%w$"
+          return not basename:match "^man%w$" and not basename:match "^cat%w$"
         end
 
         -- Detect mtime of man directories that is newer than cache file
         local cache_invalid = vim.iter(man_dirs):any(function(man_dir)
-          local search = vim.fs.dir(man_dir, { depth = 2, skip = is_man })
+          local search = vim.fs.dir(man_dir, { depth = 2, skip = is_lang_dir })
           return vim.iter(search):any(function(ent, typ)
-            if typ ~= "directory" or not is_man(ent) then
+            if typ ~= "directory" or is_lang_dir(ent) then
               return false
             end
             local dir = vim.fs.joinpath(man_dir, ent)
