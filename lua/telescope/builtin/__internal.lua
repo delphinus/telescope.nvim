@@ -841,72 +841,52 @@ internal.man_pages = function(opts)
       cmd = "apropos ''"
     end
 
-    -- Only use cache on macOS since it doesn't automatically maintain whatis database
+    -- Only use cache on macOS since it can't maintain whatis database
     if sysname == "darwin" then
       local cache_path = vim.fs.joinpath(vim.fn.stdpath "cache", "telescope-man-pages")
       local cache_stat = vim.uv.fs_stat(cache_path)
 
-      local cache = Path:new(vim.fn.stdpath "cache", "telescope-man-pages")
-      local cache_valid = false
-
       if cache_stat and cache_stat.size > 0 then
-        -- Get man page directories from MANPATH or use manpath command
-        local man_dirs = {}
         local manpath = vim.env.MANPATH
-
-        if manpath and manpath ~= "" then
-          man_dirs = vim.split(manpath, ":", { trimempty = true })
-        else
-          local manpath_out = vim.system({ "manpath" }):wait().stdout
-          if manpath_out then
-            man_dirs = vim.split(manpath_out, ":", { trimempty = true })
+        if not manpath or manpath == "" then
+          local out = vim.system({ "manpath" }):wait().stdout
+          if out then
+            manpath = out
           end
         end
+        local man_dirs = manpath and vim.split(manpath, ":", { trimempty = true }) or {}
 
-        ---@param basename string
+        ---@param path string
         ---@return boolean
         local function is_man(path)
           local basename = vim.fs.basename(path)
           return basename:match "^man%w$" or basename:match "^cat%w$"
         end
 
-        -- Check if any subdirectory in man directories has been modified
-        cache_valid = true
-
-        for _, man_dir in ipairs(man_dirs) do
-          for ent, typ in
-            vim.fs.dir(man_dir, {
-              depth = 2,
-              skip = function(dir_name)
-                return is_man(dir_name)
-              end,
-            })
-          do
-            if typ == "directory" and is_man(ent) then
-              local dir = vim.fs.joinpath(man_dir, ent)
-              local stat = vim.uv.fs_stat(dir)
-              if stat and stat.mtime.sec > cache_stat.mtime.sec then
-                cache_valid = false
-                break
-              end
+        -- Detect mtime of man directories that is newer than cache file
+        local cache_invalid = vim.iter(man_dirs):any(function(man_dir)
+          local search = vim.fs.dir(man_dir, { depth = 2, skip = is_man })
+          return vim.iter(search):any(function(ent, typ)
+            if typ ~= "directory" or not is_man(ent) then
+              return false
             end
-          end
-          if not cache_valid then
-            break
-          end
+            local dir = vim.fs.joinpath(man_dir, ent)
+            local stat = vim.uv.fs_stat(dir)
+            return stat and stat.mtime.sec > cache_stat.mtime.sec or false
+          end)
+        end)
+
+        if not cache_invalid then
+          return { "cat", cache_path }
         end
       end
 
-      if cache_valid then
-        return { "cat", cache.filename }
-      end
-
-      return { "sh", "-c", string.format("%s | tee %s", cmd, cache.filename) }
+      return { "sh", "-c", ("%s | tee %s"):format(cmd, cache_path) }
     else
-      -- On other systems, use apropos directly without caching
       return { "sh", "-c", cmd }
     end
   end)
+
   opts.entry_maker = opts.entry_maker or make_entry.gen_from_apropos(opts)
   opts.env = { PATH = vim.env.PATH, MANPATH = vim.env.MANPATH }
 
